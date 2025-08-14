@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Applicant Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root{--primary-color:#004080;--secondary-color:#002c59;--body-bg:#f0f2f5;}
+        .sidebar-nav .nav-link{color:rgba(255,255,255,0.85);display:flex;align-items:center;}
+        .sidebar-nav .nav-link:hover,.sidebar-nav .nav-link.active{color:white;background-color:var(--secondary-color);}
+        .content-section{display:none;}
+    </style>
+</head>
+<body>
+    <div class="offcanvas offcanvas-start text-white" style="background-color: var(--primary-color);" tabindex="-1" id="sidebarMenu">
+        <!-- Sidebar content (no changes) -->
+    </div>
+
+    <header class="navbar navbar-dark sticky-top" style="background-color: var(--primary-color);">
+        <!-- Header content (no changes) -->
+    </header>
+
+    <main class="container-fluid p-3" id="main-content">
+        <div id="alert-placeholder" aria-live="polite" aria-atomic="true"></div>
+        <section id="job-listings" class="content-section"></section>
+        <section id="my-applications" class="content-section"></section>
+        <section id="my-profile" class="content-section"></section>
+    </main>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="shared.js"></script>
+    <script>
+        let loggedInUser = null;
+        
+        document.addEventListener('DOMContentLoaded', () => { /* ... (same as before) ... */ });
+        function showSection(id) { /* ... (same as before) ... */ }
+        function loadJobs() { /* ... (same as before) ... */ }
+        function handleApply(jobId) { /* ... (same as before) ... */ }
+        function loadMyApps() { /* ... (same as before) ... */ }
+        function withdrawApplication(appId) { /* ... (same as before) ... */ }
+
+        // --- REVISED PROFILE SECTION (with Profile Picture) ---
+        function loadProfile() { 
+            const p = loggedInUser.profile; 
+            document.getElementById('my-profile').innerHTML = `
+                <div class="d-flex align-items-center mb-3">
+                    <img src="${p.profile_picture_url || 'https://via.placeholder.com/80'}" alt="Profile Picture" class="rounded-circle" width="80" height="80">
+                    <div class="ms-3">
+                        <h2 class="mb-0">${p.name || 'Applicant Name'}</h2>
+                        <div>${generateApplicantBadges(p)}</div> 
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <form id="profileForm">
+                            <div class="mb-3">
+                                <label for="profilePicture" class="form-label">Change Profile Picture</label>
+                                <input class="form-control" type="file" id="profilePicture" accept="image/*">
+                                <small class="text-muted">For demo purposes, this will not actually upload a file.</small>
+                            </div>
+                            <div class="mb-3"><label for="profileName" class="form-label">Full Name</label><input type="text" id="profileName" class="form-control" value="${p.name || ''}" required></div>
+                            <div class="mb-3"><label for="profileGender" class="form-label">Gender</label>
+                                <select id="profileGender" class="form-select"><option value="">-- Select Gender --</option><option value="Male" ${p.gender === 'Male' ? 'selected' : ''}>Male</option><option value="Female" ${p.gender === 'Female' ? 'selected' : ''}>Female</option></select>
+                            </div>
+                            <div class="mb-3"><label for="profileSkills" class="form-label">Skills (comma-separated)</label><input type="text" id="profileSkills" class="form-control" value="${(p.skills || []).join(', ')}"></div>
+                            <hr>
+                            <h5>Accessibility Information</h5>
+                            <p class="text-muted small">This information helps us connect you with inclusive employers.</p>
+                            <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="is_senior" ${p.is_senior ? 'checked' : ''}><label class="form-check-label" for="is_senior">Are you a Senior Citizen?</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" id="is_pwd" ${p.is_pwd ? 'checked' : ''} onchange="togglePwdType(this.checked)"><label class="form-check-label" for="is_pwd">Are you a Person with Disability (PWD)?</label></div>
+                            <div class="mb-3 mt-2" id="pwd-type-container" style="display: ${p.is_pwd ? 'block' : 'none'};"><label for="pwd_type" class="form-label">Type of Disability</label><input type="text" id="pwd_type" class="form-control" value="${p.pwd_type || ''}" placeholder="e.g., Visual, Hearing, Orthopedic"></div>
+                            <hr>
+                            <h5>My Requirements</h5>
+                            <div class="mb-3"><label for="requirementsUpload" class="form-label">Upload New File(s)</label><input type="file" id="requirementsUpload" class="form-control" multiple></div>
+                            <button type="button" class="btn btn-secondary" onclick="saveRequirements()">Upload Selected Files</button>
+                            <ul class="list-group mt-3">${(p.requirements || []).length > 0 ? (p.requirements || []).map(r => `<li class="list-group-item">${r.name}</li>`).join('') : '<li class="list-group-item">No requirements uploaded.</li>'}</ul>
+                            <hr>
+                            <button type="submit" class="btn btn-primary mt-3 w-100">Save Profile Changes</button>
+                        </form>
+                    </div>
+                </div>`; 
+            document.getElementById('profileForm').addEventListener('submit', saveProfile); 
+        }
+        
+        function togglePwdType(isChecked) { /* ... (same as before) ... */ }
+        
+        function saveProfile(e) { 
+            e.preventDefault(); 
+            loggedInUser.profile.name = document.getElementById('profileName').value;
+            loggedInUser.profile.gender = document.getElementById('profileGender').value;
+            loggedInUser.profile.skills = document.getElementById('profileSkills').value.split(',').map(s => s.trim()).filter(Boolean);
+            loggedInUser.profile.is_senior = document.getElementById('is_senior').checked;
+            loggedInUser.profile.is_pwd = document.getElementById('is_pwd').checked;
+            loggedInUser.profile.pwd_type = loggedInUser.profile.is_pwd ? document.getElementById('pwd_type').value : '';
+            
+            const pictureFile = document.getElementById('profilePicture').files[0];
+            if (pictureFile) {
+                loggedInUser.profile.profile_picture_url = `https://i.pravatar.cc/150?u=${Date.now()}`;
+                displayNotification('alert-placeholder', 'Profile picture updated (simulation)!', 'info');
+            }
+
+            updateUserInStorage(); 
+            displayNotification('alert-placeholder', 'Profile Saved Successfully!', 'success');
+            loadProfile();
+        }
+        
+        function saveRequirements() { /* ... (same as before) ... */ }
+        function updateUserInStorage() { /* ... (same as before) ... */ }
+        function loadNotifications() { /* ... (same as before) ... */ }
+    </script>
+</body>
+</html>

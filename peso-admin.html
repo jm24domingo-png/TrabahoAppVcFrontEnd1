@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PESO Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root { --primary-color: #004080; --secondary-color: #002c59; --body-bg: #f0f2f5; }
+        .sidebar-nav .nav-link { color: rgba(255,255,255,0.85); display: flex; align-items: center; border-left: 3px solid transparent; }
+        .sidebar-nav .nav-link:hover, .sidebar-nav .nav-link.active { color: white; background-color: var(--secondary-color); border-left-color: #ffc107; }
+        .sidebar-nav .nav-link .fa-fw { margin-right: 10px; }
+        .content-section { display: none; }
+        .stat-card { border-left: 5px solid; }
+        .form-switch .form-check-input:checked { background-color: var(--primary-color); border-color: var(--primary-color); }
+        #user-search-results .list-group-item { cursor: pointer; }
+        .profile-link { color: var(--primary-color); text-decoration: none; font-weight: 500; }
+        .profile-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="offcanvas offcanvas-start text-white" style="background-color: var(--primary-color);" tabindex="-1" id="sidebarMenu">        
+
+<div class="offcanvas-header" style="background-color: var(--secondary-color);"><h5 class="offcanvas-title">PESO Admin Menu</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
+
+        <div class="offcanvas-body d-flex flex-column p-0">
+            <nav class="sidebar-nav">
+                <ul class="navbar-nav">
+                    <li><a href="#" class="nav-link" onclick="showSection('dashboard')"><i class="fa-fw fas fa-tachometer-alt"></i> Dashboard</a></li>
+                    <li><a href="#" class="nav-link" onclick="showSection('pending-jobs')"><i class="fa-fw fas fa-hourglass-half"></i> Job Approvals</a></li>
+                    <li><a href="#" class="nav-link" onclick="showSection('referrals-approval')"><i class="fa-fw fas fa-share-square"></i> Referral Management</a></li>
+                    <li><a href="#" class="nav-link" onclick="showSection('employers-management')"><i class="fa-fw fas fa-building"></i> Employers</a></li>
+                    <li><a href="#" class="nav-link" onclick="showSection('application-monitoring')"><i class="fa-fw fas fa-binoculars"></i> App Monitoring</a></li>
+                    <li><a href="#" class="nav-link" onclick="showSection('job-archives')"><i class="fa-fw fas fa-book"></i> Job Archives</a></li>
+                    <li><a href="#" class="nav-link" onclick="showSection('reports')"><i class="fa-fw fas fa-file-alt"></i> Reports</a></li>
+                    <li><a href="#" class="nav-link" onclick="showSection('lmi-management')"><i class="fa-fw fas fa-chart-line"></i> LMI Data</a></li>
+                    <li><a href="#" class="nav-link" onclick="showSection('messaging')"><i class="fa-fw fas fa-envelope"></i> Messaging</a></li>
+                </ul>
+            </nav>
+            <div class="mt-auto p-3"><button onclick="logoutUser()" class="btn btn-danger w-100">Logout</button></div>
+        </div>
+    </div>
+
+    <header class="navbar navbar-dark sticky-top" style="background-color: var(--primary-color);">
+        <div class="container-fluid">
+            <button class="navbar-toggler" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" aria-label="Toggle navigation menu"><span class="navbar-toggler-icon" aria-hidden="true"></span></button>
+            <h1 id="pageTitle" class="navbar-brand fs-4 m-0"></h1>
+        </div>
+    </header>
+
+    <main class="container-fluid p-3" id="main-content">
+        <div id="alert-placeholder" aria-live="polite" aria-atomic="true"></div>
+        <section id="dashboard" class="content-section"></section>
+        <section id="pending-jobs" class="content-section"></section>
+        <section id="referrals-approval" class="content-section"></section>
+        <section id="employers-management" class="content-section"></section>
+        <section id="application-monitoring" class="content-section"></section>
+        <section id="job-archives" class="content-section"></section>
+        <section id="reports" class="content-section"></section>
+        <section id="lmi-management" class="content-section"></section>
+        <section id="messaging" class="content-section"></section>
+    </main>
+
+    <div class="modal fade" id="viewProfileModal" tabindex="-1">
+         <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title" id="viewProfileModalTitle">User Profile</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body" id="viewProfileModalBody"></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+        </div></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="shared.js"></script>
+    <script>
+        let viewProfileModal = null;
+        let currentReportData = []; 
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const loggedInUser = getLoggedInUser();
+            if (!loggedInUser || loggedInUser.role !== USER_ROLES.ADMIN) { alert("Access Denied."); window.location.href = 'index.html'; return; }
+            viewProfileModal = new bootstrap.Modal(document.getElementById('viewProfileModal'));
+            showSection('dashboard');
+        });
+
+        function showSection(sectionId) {
+            document.querySelectorAll('.content-section').forEach(s => s.style.display = 'none');
+            document.getElementById(sectionId).style.display = 'block';
+            document.getElementById('pageTitle').textContent = sectionId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            document.querySelectorAll('.sidebar-nav .nav-link').forEach(l => l.classList.remove('active'));
+            document.querySelector(`.sidebar-nav .nav-link[onclick*="'${sectionId}'"]`)?.classList.add('active');
+            
+            const actions = {
+                'dashboard': loadDashboard, 'pending-jobs': loadPendingJobs, 'referrals-approval': loadReferrals,
+                'employers-management': loadEmployers, 'application-monitoring': loadApplicationMonitoring,
+                'job-archives': loadJobArchives, 'reports': loadReportsSection, 'lmi-management': loadLmiManagement,
+                'messaging': loadMessagingCenter 
+            };
+            if (actions[sectionId]) actions[sectionId]();
+        }
+
+        // --- ALL DYNAMIC FUNCTIONS ---
+
+        function loadDashboard() {
+            const jobs = getData('jobs');
+            const employers = getData('users').filter(u => u.role === 'employer');
+            const apps = getData('applications');
+            document.getElementById('dashboard').innerHTML = `<h2 class="mb-3">Dashboard Overview</h2><div class="row g-3">
+                ${createStatCard("Pending Jobs for Approval", jobs.filter(j => j.status === "pending_approval").length, "border-primary")}
+                ${createStatCard("Applications for Referral", apps.filter(a => a.status === APPLICATION_STATUSES.FOR_SCREENING).length, "border-info")}
+                ${createStatCard("Employers for Verification", employers.filter(e => !e.profile.isVerified).length, "border-warning")}
+                ${createStatCard("Total Hired This Month", apps.filter(a => a.status === APPLICATION_STATUSES.HIRED && new Date(a.submittedDate).getMonth() === new Date().getMonth()).length, "border-success")}
+            </div>`;
+        }
+
+        function createStatCard(title, value, color) { return `<div class="col-md-6 col-lg-3"><div class="card stat-card h-100 ${color}"><div class="card-body"><h6>${title}</h6><p class="fs-4 fw-bold mb-0">${value}</p></div></div></div>`; }
+        
+        function loadPendingJobs() {
+            const container = document.getElementById('pending-jobs');
+            const pendingJobs = getData('jobs').filter(j => j.status === 'pending_approval');
+            const employers = getData('users').filter(u => u.role === 'employer');
+            let content = `<h2>Pending Job Approvals</h2>`;
+            if (pendingJobs.length > 0) {
+                content += `<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Job Title</th><th>Company</th><th>Date Posted</th><th>Actions</th></tr></thead><tbody>`;
+                pendingJobs.forEach(job => {
+                    const employer = employers.find(e => e.id === job.employerId);
+                    content += `<tr><td>${job.title}</td><td><a href="#" class="profile-link" onclick="event.preventDefault(); showUserProfile(${employer.id})">${employer?.profile.companyName || 'N/A'}</a></td><td>${new Date(job.postedDate).toLocaleDateString()}</td><td><div class="btn-group"><button class="btn btn-sm btn-success" onclick="handleJobApproval(${job.id}, 'approved')">Approve</button><button class="btn btn-sm btn-danger" onclick="handleJobApproval(${job.id}, 'denied')">Deny</button></div></td></tr>`;
+                });
+                content += `</tbody></table></div>`;
+            } else { content += `<div class="alert alert-info">No jobs are currently pending for approval.</div>`; }
+            container.innerHTML = content;
+        }
+
+        function handleJobApproval(jobId, newStatus) {
+            if (!confirm(`Are you sure you want to ${newStatus} this job?`)) return;
+            let jobs = getData('jobs');
+            const jobIndex = jobs.findIndex(j => j.id === jobId);
+            if (jobIndex > -1) { jobs[jobIndex].status = newStatus; saveData('jobs', jobs); displayNotification('alert-placeholder', `Job has been ${newStatus}.`, 'success'); loadPendingJobs(); }
+        }
+        
+        function loadReferrals() {
+            const container = document.getElementById('referrals-approval');
+            const forReferral = getData('applications').filter(a => a.status === APPLICATION_STATUSES.FOR_SCREENING);
+            let content = `<h2>Referral Management</h2>`;
+             if (forReferral.length > 0) {
+                content += `<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Applicant</th><th>Applying for</th><th>Company</th><th>Actions</th></tr></thead><tbody>`;
+                forReferral.forEach(app => {
+                    const applicant = getData('users').find(u => u.id === app.applicantId);
+                    const job = getData('jobs').find(j => j.id === app.jobId);
+                    const employer = getData('users').find(e => e.id === app.employerId);
+                    content += `<tr>
+                        <td><a href="#" class="profile-link" onclick="event.preventDefault(); showUserProfile(${applicant.id})">${applicant?.profile.name || 'N/A'}</a> ${generateApplicantBadges(applicant?.profile)}</td>
+                        <td>${job?.title || 'N/A'}</td>
+                        <td><a href="#" class="profile-link" onclick="event.preventDefault(); showUserProfile(${employer.id})">${employer?.profile.companyName || 'N/A'}</a></td>
+                        <td><div class="btn-group"><button class="btn btn-sm btn-success" onclick="handleReferral(${app.id}, true)">Refer</button><button class="btn btn-sm btn-warning" onclick="handleReferral(${app.id}, false)">Not Qualified</button></div></td>
+                    </tr>`;
+                });
+                content += `</tbody></table></div>`;
+            } else { content += `<div class="alert alert-info">No applicants are currently waiting for referral.</div>`; }
+            container.innerHTML = content;
+        }
+
+        function handleReferral(appId, doRefer) {
+            const newStatus = doRefer ? APPLICATION_STATUSES.REFERRED : APPLICATION_STATUSES.NOT_QUALIFIED;
+            if (!confirm(doRefer ? "Refer this applicant?" : "Mark as Not Qualified?")) return;
+            let apps = getData('applications');
+            const appIndex = apps.findIndex(a => a.id === appId);
+            if (appIndex > -1) { apps[appIndex].status = newStatus; saveData('applications', apps); displayNotification('alert-placeholder', `Applicant status updated.`, 'success'); loadReferrals(); }
+        }
+
+        function loadEmployers() {
+            const container = document.getElementById('employers-management');
+            const employers = getData('users').filter(u => u.role === 'employer');
+            let content = `<h2>Employers Management</h2>`;
+            if (employers.length > 0) {
+                content += `<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Company Name</th><th>Email</th><th>Verification Status</th><th>Account Status</th><th>Actions</th></tr></thead><tbody>`;
+                employers.forEach(emp => {
+                    const vStatus = emp.profile.isVerified ? `<span class="badge bg-success">Verified</span>` : `<span class="badge bg-warning text-dark">Pending</span>`;
+                    const bStatus = emp.profile.isBlacklisted ? `<span class="badge bg-danger">Blacklisted</span>` : `<span class="badge bg-secondary">Active</span>`;
+                    const verifyBtn = !emp.profile.isVerified ? `<button class="btn btn-sm btn-success" onclick="handleEmployerVerification(${emp.id}, true)">Verify</button>` : '';
+                    const blacklistBtn = !emp.profile.isBlacklisted ? `<button class="btn btn-sm btn-danger" onclick="handleEmployerBlacklist(${emp.id}, true)">Blacklist</button>` : `<button class="btn btn-sm btn-info" onclick="handleEmployerBlacklist(${emp.id}, false)">Un-blacklist</button>`;
+                    content += `<tr>
+                        <td><a href="#" class="profile-link" onclick="event.preventDefault(); showUserProfile(${emp.id})">${emp.profile.companyName}</a></td>
+                        <td>${emp.email}</td><td>${vStatus}</td><td>${bStatus}</td><td><div class="btn-group">${verifyBtn}${blacklistBtn}</div></td></tr>`;
+                });
+                content += `</tbody></table></div>`;
+            } else { content += `<div class="alert alert-info">No employer accounts found.</div>`; }
+            container.innerHTML = content;
+        }
+
+        function handleEmployerVerification(empId, isVerified) {
+            let users = getData('users');
+            const userIndex = users.findIndex(u => u.id === empId);
+            if (userIndex > -1) { users[userIndex].profile.isVerified = isVerified; saveData('users', users); displayNotification('alert-placeholder', 'Employer verification status updated.', 'success'); loadEmployers(); }
+        }
+        
+        function handleEmployerBlacklist(empId, isBlacklisted) {
+            let users = getData('users');
+            const userIndex = users.findIndex(u => u.id === empId);
+            if (userIndex > -1) { users[userIndex].profile.isBlacklisted = isBlacklisted; saveData('users', users); displayNotification('alert-placeholder', 'Employer account status updated.', 'success'); loadEmployers(); }
+        }
+
+        function loadApplicationMonitoring() {
+            const container = document.getElementById('application-monitoring');
+            const apps = getData('applications');
+            apps.sort((a,b) => new Date(b.submittedDate) - new Date(a.submittedDate));
+            let content = `<h2>Application Monitoring (All)</h2>`;
+            if (apps.length > 0) {
+                content += `<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Applicant</th><th>Job Title</th><th>Company</th><th>Status</th><th>Date Submitted</th></tr></thead><tbody>`;
+                apps.forEach(app => {
+                    const applicant = getData('users').find(u => u.id === app.applicantId);
+                    const job = getData('jobs').find(j => j.id === app.jobId);
+                    const employer = getData('users').find(e => e.id === app.employerId);
+                    content += `<tr>
+                        <td><a href="#" class="profile-link" onclick="event.preventDefault(); showUserProfile(${applicant.id})">${applicant?.profile.name || 'N/A'}</a> ${generateApplicantBadges(applicant?.profile)}</td>
+                        <td>${job?.title || 'N/A'}</td>
+                        <td><a href="#" class="profile-link" onclick="event.preventDefault(); showUserProfile(${employer.id})">${employer?.profile.companyName || 'N/A'}</a></td>
+                        <td><span class="badge bg-info">${app.status}</span></td>
+                        <td>${new Date(app.submittedDate).toLocaleDateString()}</td>
+                    </tr>`;
+                });
+                content += `</tbody></table></div>`;
+            } else { content += `<div class="alert alert-info">No applications found in the system.</div>`; }
+            container.innerHTML = content;
+        }
+        
+        function loadJobArchives() {
+            const container = document.getElementById('job-archives');
+            container.innerHTML = `<div class="card"><div class="card-body"><h2 class="card-title h4">Job Vacancy Archives</h2><p class="card-text text-muted">Search all jobs posted in the system, active or closed, by company name.</p><div class="mb-3"><label for="jobArchiveSearchInput" class="form-label visually-hidden">Search by Company Name</label><input type="text" id="jobArchiveSearchInput" class="form-control" onkeyup="renderJobArchives(this.value)" placeholder="Type a company name to search..."></div><div id="jobArchiveList"></div></div></div>`;
+            renderJobArchives();
+        }
+
+        function renderJobArchives(searchTerm = '') {
+            const listContainer = document.getElementById('jobArchiveList');
+            const allJobs = getData('jobs');
+            const allEmployers = getData('users').filter(u => u.role === USER_ROLES.EMPLOYER);
+            allJobs.sort((a, b) => new Date(b.postedDate) - new Date(a.postedDate));
+            let filteredJobs = allJobs;
+            if (searchTerm.trim() !== '') {
+                const lowerCaseSearch = searchTerm.toLowerCase();
+                const matchingEmployerIds = allEmployers.filter(e => e.profile.companyName.toLowerCase().includes(lowerCaseSearch)).map(e => e.id);
+                filteredJobs = allJobs.filter(j => matchingEmployerIds.includes(j.employerId));
+            }
+            let tableContent = filteredJobs.length > 0 ? filteredJobs.map(job => {
+                const employer = allEmployers.find(e => e.id === job.employerId);
+                const pesoStatus = job.status === 'approved' ? '<span class="badge bg-success">Approved</span>' : '<span class="badge bg-warning text-dark">Pending</span>';
+                const listingStatus = job.isOpen ? '<span class="badge bg-primary">Open</span>' : '<span class="badge bg-secondary">Closed</span>';
+                return `<tr><td>${employer ? employer.profile.companyName : 'N/A'}</td><td>${job.title}</td><td>${pesoStatus}</td><td>${listingStatus}</td><td>${new Date(job.postedDate).toLocaleDateString()}</td></tr>`;
+            }).join('') : `<tr><td colspan="5" class="text-center p-3">No matching job vacancies found.</td></tr>`;
+            listContainer.innerHTML = `<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Company Name</th><th>Job Title</th><th>PESO Status</th><th>Listing Status</th><th>Date Posted</th></tr></thead><tbody>${tableContent}</tbody></table></div>`;
+        }
+        
+        function loadReportsSection() {
+            const container = document.getElementById('reports');
+            const currentYear = new Date().getFullYear();
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            container.innerHTML = `<div class="card"><div class="card-body"><h2 class="card-title h4">Monthly Demographics Report</h2><p class="card-text text-muted">Generate a report on hired and not selected applicants with demographic breakdowns.</p><div class="row g-3 align-items-end"><div class="col-md-4"><label for="reportMonth" class="form-label">Month</label><select id="reportMonth" class="form-select">${months.map((m, i) => `<option value="${i + 1}" ${new Date().getMonth() == i ? 'selected' : ''}>${m}</option>`).join('')}</select></div><div class="col-md-4"><label for="reportYear" class="form-label">Year</label><input type="number" id="reportYear" class="form-control" value="${currentYear}"></div><div class="col-md-4"><button class="btn btn-primary w-100" onclick="generateMonthlyReport()">Generate Report</button></div></div><hr><div id="reportResult" aria-live="polite"><div class="alert alert-info">Select a month and year, then click "Generate Report".</div></div></div></div>`;
+        }
+
+        function generateMonthlyReport() {
+            const month = document.getElementById('reportMonth').value;
+            const year = document.getElementById('reportYear').value;
+            const resultContainer = document.getElementById('reportResult');
+            if (!month || !year) { resultContainer.innerHTML = `<div class="alert alert-danger">Please select a valid month and year.</div>`; return; }
+            const allUsers = getData('users');
+            const filteredApps = getData('applications').filter(app => {
+                if (!app.submittedDate) return false;
+                const appDate = new Date(app.submittedDate);
+                return appDate.getFullYear() == year && (appDate.getMonth() + 1) == month;
+            });
+            if (filteredApps.length === 0) { resultContainer.innerHTML = `<div class="alert alert-warning">No application data found for the selected period.</div>`; currentReportData = []; return; }
+            const summary = {};
+            filteredApps.forEach(app => {
+                const employerName = allUsers.find(e => e.id === app.employerId)?.profile.companyName || 'N/A';
+                if (!summary[app.employerId]) {
+                    summary[app.employerId] = { companyName: employerName, totalApps: 0, hired_male: 0, hired_female: 0, hired_pwd: 0, hired_senior: 0, notSelected_male: 0, notSelected_female: 0, notSelected_pwd: 0, notSelected_senior: 0, pending: 0 };
+                }
+                const companySummary = summary[app.employerId];
+                companySummary.totalApps++;
+                const applicant = allUsers.find(u => u.id === app.applicantId);
+                if (app.status === APPLICATION_STATUSES.HIRED) {
+                    if (applicant?.profile.gender === 'Male') companySummary.hired_male++;
+                    if (applicant?.profile.gender === 'Female') companySummary.hired_female++;
+                    if (applicant?.profile.is_pwd) companySummary.hired_pwd++;
+                    if (applicant?.profile.is_senior) companySummary.hired_senior++;
+                } else if (app.status === APPLICATION_STATUSES.NOT_SELECTED) {
+                    if (applicant?.profile.gender === 'Male') companySummary.notSelected_male++;
+                    if (applicant?.profile.gender === 'Female') companySummary.notSelected_female++;
+                    if (applicant?.profile.is_pwd) companySummary.notSelected_pwd++;
+                    if (applicant?.profile.is_senior) companySummary.notSelected_senior++;
+                } else { companySummary.pending++; }
+            });
+            currentReportData = Object.values(summary);
+            renderReportTable(currentReportData, month, year);
+        }
+        
+        function renderReportTable(data, month, year) {
+            const resultContainer = document.getElementById('reportResult');
+            const monthName = new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' });
+            const tableHeaders = ["Company", "Total Apps", "Hired (M)", "Hired (F)", "Hired (PWD)", "Hired (Senior)", "Not Selected (Total)"];
+            let tableBody = data.map(row => `<tr><td>${row.companyName}</td><td>${row.totalApps}</td><td>${row.hired_male}</td><td>${row.hired_female}</td><td>${row.hired_pwd}</td><td>${row.hired_senior}</td><td>${row.notSelected_male + row.notSelected_female}</td></tr>`).join('');
+            resultContainer.innerHTML = `<div class="d-flex justify-content-between align-items-center mb-3"><h3 class="h5 mb-0">Report for ${monthName} ${year}</h3><button class="btn btn-success btn-sm" onclick="exportReportToCsv()"><i class="fas fa-file-csv me-1"></i> Export to CSV</button></div><div class="table-responsive"><table class="table table-bordered table-striped"><thead><tr>${tableHeaders.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${tableBody}</tbody></table></div>`;
+        }
+
+        function exportReportToCsv() {
+            if (currentReportData.length === 0) { alert("No data to export."); return; }
+            const headers = "Company,TotalApps,Hired_Male,Hired_Female,Hired_PWD,Hired_Senior,NotSelected_Male,NotSelected_Female,NotSelected_PWD,NotSelected_Senior,Pending\n";
+            let csvContent = "data:text/csv;charset=utf-8," + headers;
+            currentReportData.forEach(row => {
+                const rowArray = [ `"${row.companyName}"`, row.totalApps, row.hired_male, row.hired_female, row.hired_pwd, row.hired_senior, row.notSelected_male, row.notSelected_female, row.notSelected_pwd, row.notSelected_senior, row.pending ];
+                csvContent += rowArray.join(",") + "\n";
+            });
+            const link = document.createElement("a");
+            const month = document.getElementById('reportMonth').value;
+            const year = document.getElementById('reportYear').value;
+            link.setAttribute("href", encodeURI(csvContent));
+            link.setAttribute("download", `peso_demographics_report_${year}-${String(month).padStart(2, '0')}.csv`);
+            document.body.appendChild(link); link.click(); link.remove();
+        }
+
+        function loadLmiManagement() {
+            const container = document.getElementById('lmi-management');
+            const settings = getData('settings');
+            const lmiData = getData('lmiSubmissions');
+            container.innerHTML = `<h2 class="mb-3">LMI Data Management</h2>
+                <div class="card mb-4"><div class="card-body">
+                    <h5 class="card-title">LMI Form Control</h5><p>Enable or disable the LMI submission form for all employers.</p>
+                    <div class="form-check form-switch fs-5">
+                        <input class="form-check-input" type="checkbox" role="switch" id="lmiToggle" onchange="toggleLmiSubmission(this.checked)" ${settings.lmiSubmissionOpen ? 'checked' : ''}>
+                        <label class="form-check-label" for="lmiToggle">LMI Submission is currently <strong id="lmiStatusText">${settings.lmiSubmissionOpen ? 'OPEN' : 'CLOSED'}</strong></label>
+                    </div></div></div>
+                <div class="card"><div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3"><h5 class="card-title mb-0">Received LMI Data</h5><button class="btn btn-success" onclick="exportLmiDataToCsv()"><i class="fas fa-file-csv"></i> Export All as CSV</button></div>
+                    <div class="table-responsive"><table class="table"><thead><tr><th>Company</th><th>Job Title</th><th>Vacancies</th><th>Salary Range</th><th>Skills Needed</th></tr></thead><tbody>
+                        ${lmiData.length > 0 ? lmiData.map(lmi => { const employer = getData('users').find(u => u.id === lmi.employerId); return `<tr><td>${employer?.profile.companyName}</td><td>${lmi.jobTitle}</td><td>${lmi.vacancies}</td><td>${lmi.salaryRange}</td><td>${lmi.skills}</td></tr>`; }).join('') : `<tr><td colspan="5" class="text-center">No LMI data submitted yet.</td></tr>`}
+                    </tbody></table></div></div></div>`;
+        }
+        
+        function toggleLmiSubmission(isOpen) {
+            let settings = getData('settings'); settings.lmiSubmissionOpen = isOpen; saveData('settings', settings);
+            document.getElementById('lmiStatusText').textContent = isOpen ? 'OPEN' : 'CLOSED';
+            displayNotification('alert-placeholder', 'LMI submission status updated.', 'success');
+        }
+
+        function exportLmiDataToCsv() {
+            const lmiData = getData('lmiSubmissions');
+            if (lmiData.length === 0) { displayNotification('alert-placeholder', 'No LMI data to export.', 'warning'); return; }
+            let csvContent = "data:text/csv;charset=utf-8,Company,Job Title,Vacancies,Salary Range,Skills Needed,Date Submitted\n";
+            lmiData.forEach(row => {
+                const employer = getData('users').find(u => u.id === row.employerId);
+                csvContent += `"${employer?.profile.companyName}","${row.jobTitle}","${row.vacancies}","${row.salaryRange}","${row.skills}","${new Date(row.submittedDate).toISOString()}"\n`;
+            });
+            const link = document.createElement("a");
+            link.setAttribute("href", encodeURI(csvContent));
+            link.setAttribute("download", "peso_lmi_report.csv");
+            document.body.appendChild(link); link.click(); link.remove();
+        }
+
+        function loadMessagingCenter() {
+            const container = document.getElementById('messaging');
+            container.innerHTML = `<h2 class="mb-3">Messaging Center</h2>
+                <ul class="nav nav-pills mb-3" id="pills-messaging-tab" role="tablist">
+                    <li class="nav-item" role="presentation"><button class="nav-link active" id="pills-broadcast-tab" data-bs-toggle="pill" data-bs-target="#pills-broadcast" type="button" role="tab"><i class="fas fa-bullhorn me-1"></i> Broadcast (General)</button></li>
+                    <li class="nav-item" role="presentation"><button class="nav-link" id="pills-direct-tab" data-bs-toggle="pill" data-bs-target="#pills-direct" type="button" role="tab"><i class="fas fa-paper-plane me-1"></i> Direct Message (Private)</button></li>
+                </ul>
+                <div class="tab-content" id="pills-tabContent">
+                    <div class="tab-pane fade show active" id="pills-broadcast" role="tabpanel"><div class="card"><div class="card-body">
+                        <h5 class="card-title">Send General Announcement</h5>
+                        <form id="broadcastForm">
+                            <div class="mb-3"><label for="broadcastTarget" class="form-label">Send To Group:</label><select class="form-select" id="broadcastTarget" required><option value="all" selected>All Users</option><option value="applicant">Applicants Only</option><option value="employer">Employers Only</option></select></div>
+                            <div class="mb-3"><label for="broadcastMessage" class="form-label">Message:</label><textarea class="form-control" id="broadcastMessage" rows="4" required></textarea></div>
+                            <button type="submit" class="btn btn-primary">Send Broadcast</button>
+                        </form>
+                    </div></div></div>
+                    <div class="tab-pane fade" id="pills-direct" role="tabpanel"><div class="card"><div class="card-body">
+                        <h5 class="card-title">Send Private Message</h5>
+                        <form id="directMessageForm">
+                            <div class="mb-3"><label for="userSearchInput" class="form-label">Send To User:</label><input type="text" id="userSearchInput" class="form-control" onkeyup="filterUsers(this.value)" placeholder="Type name, company, or unique ID..." autocomplete="off"><div id="user-search-results" class="list-group mt-1 position-absolute" style="z-index: 1000; width: 95%;"></div><input type="hidden" id="messageTargetId"></div>
+                            <div class="mb-3 mt-5 pt-4"><label for="directMessage" class="form-label">Message:</label><textarea class="form-control" id="directMessage" rows="4" required></textarea></div>
+                            <button type="submit" class="btn btn-info">Send Direct Message</button>
+                        </form>
+                    </div></div></div>
+                </div>`;
+            document.getElementById('broadcastForm').addEventListener('submit', handleBroadcastSubmit);
+            document.getElementById('directMessageForm').addEventListener('submit', handleDirectMessageSubmit);
+        }
+        
+        function filterUsers(searchTerm) {
+            const resultsContainer = document.getElementById('user-search-results');
+            if (searchTerm.length < 2) { resultsContainer.innerHTML = ''; return; }
+            const lowerCaseSearch = searchTerm.toLowerCase();
+            const users = getData('users').filter(u => u.role !== USER_ROLES.ADMIN);
+            const filteredUsers = users.filter(user => {
+                const name = (user.profile.name || user.profile.companyName || '').toLowerCase();
+                const email = (user.email || '').toLowerCase();
+                const id = (user.id || '').toString();
+                return name.includes(lowerCaseSearch) || email.includes(lowerCaseSearch) || id.includes(lowerCaseSearch);
+            });
+            resultsContainer.innerHTML = filteredUsers.length > 0 ? filteredUsers.slice(0, 7).map(user => {
+                const identifier = user.role === USER_ROLES.EMPLOYER ? user.profile.companyName : user.profile.name;
+                const badges = user.role === USER_ROLES.APPLICANT ? generateApplicantBadges(user.profile) : '';
+                return `<a href="#" class="list-group-item list-group-item-action" onclick="event.preventDefault(); selectUser(${user.id}, '${identifier.replace(/'/g, "\\'")}')"><strong>${identifier}</strong>${badges}<br><small class="text-muted">ID: ${user.id} | Role: ${user.role}</small></a>`;
+            }).join('') : '<span class="list-group-item">No users found.</span>';
+        }
+
+        function selectUser(userId, userName) {
+            document.getElementById('userSearchInput').value = userName;
+            document.getElementById('messageTargetId').value = userId;
+            document.getElementById('user-search-results').innerHTML = '';
+        }
+
+        function handleBroadcastSubmit(event) {
+            event.preventDefault();
+            if (!confirm("Send broadcast?")) return;
+            const targetGroup = document.getElementById('broadcastTarget').value;
+            const message = document.getElementById('broadcastMessage').value;
+            let notifications = getData('notifications');
+            let users = getData('users');
+            let targetUsers = users.filter(user => targetGroup === 'all' || user.role === targetGroup);
+            targetUsers.forEach(user => { notifications.push({ id: Date.now() + Math.random(), userId: user.id, message: `(Announcement) ${message}`, isRead: false, date: new Date().toISOString() }); });
+            saveData('notifications', notifications);
+            displayNotification('alert-placeholder', `Broadcast sent to ${targetUsers.length} user(s).`, 'success');
+            document.getElementById('broadcastMessage').value = '';
+        }
+
+        function handleDirectMessageSubmit(event) {
+            event.preventDefault();
+            const targetId = document.getElementById('messageTargetId').value;
+            const message = document.getElementById('directMessage').value;
+            if (!targetId) { displayNotification('alert-placeholder', 'Please select a recipient.', 'warning'); return; }
+            if (!confirm("Send direct message?")) return;
+            let notifications = getData('notifications');
+            notifications.push({ id: Date.now(), userId: parseInt(targetId), message: `(Private Message) ${message}`, isRead: false, date: new Date().toISOString() });
+            saveData('notifications', notifications);
+            const targetUser = getData('users').find(u => u.id == targetId);
+            const identifier = targetUser.role === 'employer' ? targetUser.profile.companyName : targetUser.profile.name;
+            displayNotification('alert-placeholder', `Message sent to ${identifier}.`, 'success');
+            document.getElementById('userSearchInput').value = '';
+            document.getElementById('messageTargetId').value = '';
+            document.getElementById('directMessage').value = '';
+        }
+
+        function showUserProfile(userId) {
+            const user = getData('users').find(u => u.id === userId);
+            if (!user) { alert('User not found!'); return; }
+            
+            const modalTitle = document.getElementById('viewProfileModalTitle');
+            const modalBody = document.getElementById('viewProfileModalBody');
+            
+            if (user.role === USER_ROLES.APPLICANT) {
+                modalTitle.textContent = 'Applicant Profile';
+                const p = user.profile;
+                modalBody.innerHTML = `<div class="row"><div class="col-md-4 text-center"><img src="${p.profile_picture_url || 'https://via.placeholder.com/150'}" class="img-fluid rounded-circle mb-3" alt="Profile Picture" width="150" height="150"><h4>${p.name}</h4><div>${generateApplicantBadges(p)}</div><p class="text-muted small">${user.email}</p></div><div class="col-md-8"><h5><i class="fas fa-user-circle me-2"></i>Personal Details</h5><table class="table table-sm table-borderless"><tbody><tr><th style="width: 120px;">Gender:</th><td>${p.gender || 'N/A'}</td></tr><tr><th>Skills:</th><td>${(p.skills || []).join(', ') || 'N/A'}</td></tr>${p.is_pwd ? `<tr><th>Disability Type:</th><td>${p.pwd_type || 'Specified'}</td></tr>` : ''}</tbody></table><hr><h5><i class="fas fa-file-alt me-2"></i>Uploaded Requirements</h5><ul class="list-group">${(p.requirements && p.requirements.length > 0) ? p.requirements.map(r => `<li class="list-group-item"><i class="fas fa-paperclip me-2"></i>${r.name}</li>`).join('') : '<li class="list-group-item text-muted">No documents uploaded.</li>'}</ul></div></div>`;
+            } else if (user.role === USER_ROLES.EMPLOYER) {
+                modalTitle.textContent = 'Employer Profile';
+                const p = user.profile;
+                modalBody.innerHTML = `<h4>${p.companyName}</h4><hr><p><strong>Email:</strong> ${user.email}</p><p><strong>Address:</strong> ${p.address || 'N/A'}</p><p><strong>Verification Status:</strong> ${p.isVerified ? '<span class="badge bg-success">Verified</span>' : '<span class="badge bg-warning text-dark">Pending</span>'}</p><p><strong>Account Status:</strong> ${p.isBlacklisted ? '<span class="badge bg-danger">Blacklisted</span>' : '<span class="badge bg-success">Active</span>'}</p>`;
+            }
+            
+            viewProfileModal.show();
+        }
+    </script>
+</body>
+</html>

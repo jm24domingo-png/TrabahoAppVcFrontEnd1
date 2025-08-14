@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Employer Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root{--primary-color:#004080;--secondary-color:#002c59;--body-bg:#f0f2f5;}
+        .sidebar-nav .nav-link{color:rgba(255,255,255,0.85);display:flex;align-items:center;}
+        .sidebar-nav .nav-link:hover,.sidebar-nav .nav-link.active{color:white;background-color:var(--secondary-color);}
+        .content-section{display:none;}
+        /* Style for clickable applicant names */
+        .applicant-link { color: var(--primary-color); text-decoration: none; font-weight: 500; }
+        .applicant-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="offcanvas offcanvas-start text-white" style="background-color: var(--primary-color);" tabindex="-1" id="sidebarMenu">
+        <!-- Sidebar content (no changes) -->
+    </div>
+
+    <header class="navbar navbar-dark sticky-top" style="background-color: var(--primary-color);">
+        <!-- Header content (no changes) -->
+    </header>
+
+    <main class="container-fluid p-3" id="main-content">
+        <!-- Main content sections (no changes) -->
+    </main>
+
+    <!-- Applicant Profile Modal (no structural changes needed) -->
+    <div class="modal fade" id="applicantProfileModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Applicant Profile</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body" id="applicantProfileBody"></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+        </div></div>
+    </div>
+    <!-- Other modals (no changes) -->
+    <div class="modal fade" id="updateStatusModal" tabindex="-1">...</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="shared.js"></script>
+    <script>
+        let loggedInUser = null, updateStatusModal = null, applicantProfileModal = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loggedInUser = getLoggedInUser();
+            if (!loggedInUser || loggedInUser.role !== USER_ROLES.EMPLOYER) { alert("Access Denied."); window.location.href = 'index.html'; return; }
+            updateStatusModal = new bootstrap.Modal(document.getElementById('updateStatusModal'));
+            applicantProfileModal = new bootstrap.Modal(document.getElementById('applicantProfileModal'));
+            showSection('applicants');
+            document.getElementById('saveStatusBtn').addEventListener('click', submitStatusUpdate);
+        });
+
+        function showSection(id, jobId = null) { /* ... (same as before) ... */ }
+
+        // --- REVISED APPLICANTS SECTION (with Clickable Names for Modal) ---
+        function loadApplicants() {
+            const container = document.getElementById('applicants');
+            const applications = getData('applications').filter(a => a.employerId === loggedInUser.id);
+            let content = '<h2>Applicant Tracking</h2>';
+            if (applications.length > 0) {
+                content += '<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Applicant Name</th><th>Job Title</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+                applications.forEach(app => {
+                    const applicant = getData('users').find(u => u.id === app.applicantId);
+                    const job = getData('jobs').find(j => j.id === app.jobId);
+                    const resumeButton = applicant?.profile?.resume ? `<button class="btn btn-sm btn-outline-success" onclick="alert('Simulating download...')">Download Resume</button>` : `<button class="btn btn-sm btn-outline-secondary" disabled>No Resume</button>`;
+                    content += `<tr>
+                                    <td>
+                                        <a href="#" class="applicant-link" onclick="event.preventDefault(); showApplicantProfileModal(${applicant.id}, applicantProfileModal)">
+                                            ${applicant?.profile.name || 'N/A'}
+                                        </a>
+                                        ${generateApplicantBadges(applicant?.profile)}
+                                    </td>
+                                    <td>${job?.title || 'N/A'}</td>
+                                    <td><span class="badge bg-info">${app.status}</span></td>
+                                    <td><div class="btn-group">${resumeButton}<button class="btn btn-sm btn-primary" onclick="openUpdateModal(${app.id})">Update Status</button></div></td>
+                                </tr>`;
+                });
+                content += '</tbody></table></div>';
+            } else {
+                content += '<div class="alert alert-info">You have no applicants yet.</div>';
+            }
+            container.innerHTML = content;
+        }
+
+        function openUpdateModal(appId) { /* ... (same as before) ... */ }
+        function submitStatusUpdate() { /* ... (same as before) ... */ }
+        function loadMyJobs() { /* ... (same as before) ... */ }
+        function toggleJobStatus(jobId, isOpen) { /* ... (same as before) ... */ }
+        function handlePostJobClick() { /* ... (same as before) ... */ }
+        function setupPostJobForm(jobId = null) { /* ... (same as before) ... */ }
+        function handleJobSubmit(e) { /* ... (same as before) ... */ }
+        function loadEmployerProfile() { /* ... (same as before) ... */ }
+        function loadLmiSubmission() { /* ... (same as before) ... */ }
+    </script>
+</body>
+</html>
